@@ -18,9 +18,9 @@ public class ApiKeyInterceptor extends HandlerInterceptorAdapter {
         String apiKey = request.getHeader(API_KEY_HEADER);
         if (apiKey == null || !apiKey.equals(API_KEY_VALUE)) {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            return false; // Return false to reject the request
+            return false;
         }
-        
+
         return true;
     }
 }
