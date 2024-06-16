@@ -4,6 +4,7 @@ import com.fibanktask.dtos.*;
 import com.fibanktask.enums.CurrencyType;
 import com.fibanktask.enums.TransactionType;
 import com.fibanktask.exceptions.BadRequestException;
+import com.fibanktask.exceptions.NotFoundException;
 import org.apache.commons.io.input.ReversedLinesFileReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +29,7 @@ public class TransactionServiceImpl implements  TransactionService{
 
     private CurrencyBalance balanceBGN = new CurrencyBalance(STARTING_BGN_AMOUNT,50,10,10,50);
     private CurrencyBalance balanceEUR = new CurrencyBalance(STARTING_EUR_AMOUNT,100,10,20,50);
+
     @Override
     public CashOperationResponseDTO cashOperation(CashOperationRequestDTO request) {
 
@@ -35,7 +37,6 @@ public class TransactionServiceImpl implements  TransactionService{
             throw new BadRequestException("Invalid value/s in the request!");
         }
         createTxtFilesIfNotExist();
-
 
         if (request.getTransactionType()== TransactionType.DEPOSIT){
             deposit(request);
@@ -68,7 +69,7 @@ public class TransactionServiceImpl implements  TransactionService{
             balanceEUR.setBalance(balanceEUR.getBalance() + request.getAmountToDeposit());
         }
 
-        updateDenominations(request.getDenominations(),request.getCurrencyType());
+        addDenominations(request.getDenominations(),request.getCurrencyType());
 
         String transactionBalanceRecord = String.format("Balance: %d %s %s , %d %s %s",
                 balanceBGN.getBalance(), CurrencyType.BGN,balanceBGN.getDenominations(),
@@ -80,13 +81,39 @@ public class TransactionServiceImpl implements  TransactionService{
         writeInFile(TRANSACTION_HISTORY_FILE_PATH,transactionHistoryRecord);
     }
 
+    private void withdraw(CashOperationRequestDTO request) {
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        String formattedDateTime = now.format(formatter);
+
+        removeDenominations(request.getDenominations(),request.getCurrencyType());
+
+        if (request.getCurrencyType() == CurrencyType.BGN) {
+            balanceBGN.setBalance(balanceBGN.getBalance() - request.getAmountToDeposit());
+        }
+        else {
+            balanceEUR.setBalance(balanceEUR.getBalance() - request.getAmountToDeposit());
+        }
+
+        String transactionBalanceRecord = String.format("Balance: %d %s %s , %d %s %s",
+                balanceBGN.getBalance(), CurrencyType.BGN,balanceBGN.getDenominations(),
+                balanceEUR.getBalance(), CurrencyType.EUR,balanceEUR.getDenominations());
+
+        String transactionHistoryRecord = String.format("%s Withdraw %d %s",
+                formattedDateTime,request.getAmountToDeposit() ,request.getCurrencyType());
+        writeInFile(TRANSACTION_BALANCES_FILE_PATH,transactionBalanceRecord);
+        writeInFile(TRANSACTION_HISTORY_FILE_PATH,transactionHistoryRecord);
+    }
+
     private boolean isValidCashOperationRequest(CashOperationRequestDTO request) {
 
-        if (request.getTransactionType() != TransactionType.DEPOSIT && request.getTransactionType() != TransactionType.WITHDRAW) {
+        if (request.getTransactionType() == null ||
+                (request.getTransactionType() != TransactionType.DEPOSIT && request.getTransactionType() != TransactionType.WITHDRAW)){
             return false;
         }
 
-        if (request.getCurrencyType() != CurrencyType.BGN && request.getCurrencyType() != CurrencyType.EUR) {
+        if (request.getCurrencyType() == null ||
+                (request.getCurrencyType() != CurrencyType.BGN && request.getCurrencyType() != CurrencyType.EUR)) {
             return false;
         }
 
@@ -122,15 +149,13 @@ public class TransactionServiceImpl implements  TransactionService{
 
     private void createTxtFilesIfNotExist() {
 
-        File transactionHistory = new File(TRANSACTION_HISTORY_FILE_PATH);
+        File transactionHistory = new File(TRANSACTION_HISTORY_FILE_PATH + "_" + LocalDate.now());
 
         try {
             if (!transactionHistory.exists()) {
                 boolean created = transactionHistory.createNewFile();
 
                 if (created) {
-                    balanceBGN.setBalance(STARTING_BGN_AMOUNT);
-                    balanceBGN.setBalance(STARTING_EUR_AMOUNT);
                     logger.info("Successfully created a file at: " + TRANSACTION_HISTORY_FILE_PATH);
                 } else {
                     throw new BadRequestException("Failed to create the file!" );
@@ -140,12 +165,14 @@ public class TransactionServiceImpl implements  TransactionService{
             logger.error("An error occurred: " + e.getMessage());
         }
 
-        File transactionDenominations = new File(TRANSACTION_BALANCES_FILE_PATH);
+        File transactionDenominations = new File(TRANSACTION_BALANCES_FILE_PATH + "_" + LocalDate.now());
         try {
             if (!transactionDenominations.exists()) {
                 boolean created = transactionDenominations.createNewFile();
 
                 if (created) {
+                    balanceBGN = new CurrencyBalance(STARTING_BGN_AMOUNT,50,10,10,50);
+                    balanceEUR = new CurrencyBalance(STARTING_BGN_AMOUNT,50,10,10,50);
                     logger.info("Successfully created a file at: " + TRANSACTION_BALANCES_FILE_PATH);
                 } else {
                     throw new BadRequestException("Failed to create the file!");
@@ -156,7 +183,7 @@ public class TransactionServiceImpl implements  TransactionService{
         }
     }
 
-    private void updateDenominations(List<Denomination> denominations, CurrencyType currencyType){
+    private void addDenominations(List<Denomination> denominations, CurrencyType currencyType){
         CurrencyBalance balance;
         if (currencyType== CurrencyType.BGN){
             balance = balanceBGN;
@@ -179,13 +206,45 @@ public class TransactionServiceImpl implements  TransactionService{
         }
     }
 
+    private void removeDenominations(List<Denomination> denominations, CurrencyType currencyType) {
+        CurrencyBalance balance;
+        if (currencyType == CurrencyType.BGN) {
+            balance = balanceBGN;
+        } else {
+            balance = balanceEUR;
+        }
+
+        for (Denomination removeDenomination : denominations) {
+            Optional<Denomination> existingDenominationOpt = balance.getDenominations()
+                    .stream()
+                    .filter(d -> d.getValue() == removeDenomination.getValue())
+                    .findFirst();
+
+            if (existingDenominationOpt.isPresent()) {
+                Denomination existingDenomination = existingDenominationOpt.get();
+                if (existingDenomination.getQuantity() >= removeDenomination.getQuantity()) {
+                    int newQuantity = existingDenomination.getQuantity() - removeDenomination.getQuantity();
+                    if (newQuantity > 0) {
+                        existingDenomination.setQuantity(newQuantity);
+                    } else {
+                        balance.getDenominations().remove(existingDenomination);
+                    }
+                } else {
+                    throw new BadRequestException("Insufficient quantity for denomination: " + removeDenomination.getValue());
+                }
+            } else {
+                throw new NotFoundException("Denomination not found: " + removeDenomination.getValue());
+            }
+        }
+    }
+
     private void writeInFile(String filePath, String transactionRecord){
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath, true))) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath+ "_" + LocalDate.now(), true))) {
             writer.write(transactionRecord);
             writer.newLine();
         } catch (IOException e) {
             throw new BadRequestException("Error writing in the file!");
         }
     }
-
+    
 }
