@@ -14,7 +14,7 @@ public class Denomination {
 
     @Override
     public String toString() {
-        return quantity +
-                "x" + value;
+        return " " + quantity +
+                " x " + value + " ";
     }
 }
