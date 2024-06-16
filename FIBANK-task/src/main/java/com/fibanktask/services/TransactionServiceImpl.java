@@ -4,6 +4,7 @@ import com.fibanktask.dtos.*;
 import com.fibanktask.enums.CurrencyType;
 import com.fibanktask.enums.TransactionType;
 import com.fibanktask.exceptions.BadRequestException;
+import com.fibanktask.exceptions.FileHandlingException;
 import com.fibanktask.exceptions.NotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -167,11 +168,11 @@ public class TransactionServiceImpl implements  TransactionService{
                 if (created) {
                     logger.info("Successfully created a file at: " + TRANSACTION_HISTORY_FILE_PATH);
                 } else {
-                    throw new BadRequestException("Failed to create the file!" );
+                    throw new FileHandlingException("Failed to create the file!" );
                 }
             }
         } catch (IOException e) {
-            logger.error("An error occurred: " + e.getMessage());
+            throw new FileHandlingException( "An error occurred: " + e.getMessage());
         }
 
         File transactionDenominations = new File(TRANSACTION_BALANCES_FILE_PATH + "_" + LocalDate.now());
@@ -184,11 +185,11 @@ public class TransactionServiceImpl implements  TransactionService{
                     balanceEUR = new CurrencyBalance(STARTING_BGN_AMOUNT,50,10,10,50);
                     logger.info("Successfully created a file at: " + TRANSACTION_BALANCES_FILE_PATH);
                 } else {
-                    throw new BadRequestException("Failed to create the file!");
+                    throw new FileHandlingException("Failed to create the file!");
                 }
             }
         } catch (IOException e) {
-            logger.error("An error occurred: " + e.getMessage());
+            throw new FileHandlingException("An error occurred: " + e.getMessage());
         }
     }
 
@@ -252,7 +253,7 @@ public class TransactionServiceImpl implements  TransactionService{
             writer.write(transactionRecord);
             writer.newLine();
         } catch (IOException e) {
-            throw new BadRequestException("Error writing in the file!");
+            throw new FileHandlingException("Error writing in the file!");
         }
     }
 

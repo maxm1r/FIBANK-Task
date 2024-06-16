@@ -26,10 +26,21 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(NotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     @ResponseBody
-    public ExceptionDTO badRequestExceptionHandler(NotFoundException e){
+    public ExceptionDTO notFoundExceptionHandler(NotFoundException e){
         ExceptionDTO dto = new ExceptionDTO();
         dto.setMsg(e.getMessage());
         dto.setStatus(HttpStatus.NOT_FOUND.value());
+        e.printStackTrace();
+        return dto;
+    }
+
+    @ExceptionHandler(FileHandlingException.class)
+    @ResponseStatus(HttpStatus.EXPECTATION_FAILED)
+    @ResponseBody
+    public ExceptionDTO fileHandleExceptionHandler(FileHandlingException e){
+        ExceptionDTO dto = new ExceptionDTO();
+        dto.setMsg(e.getMessage());
+        dto.setStatus(HttpStatus.EXPECTATION_FAILED.value());
         e.printStackTrace();
         return dto;
     }
