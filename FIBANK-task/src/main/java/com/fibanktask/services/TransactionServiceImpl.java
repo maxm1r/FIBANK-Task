@@ -5,7 +5,6 @@ import com.fibanktask.enums.CurrencyType;
 import com.fibanktask.enums.TransactionType;
 import com.fibanktask.exceptions.BadRequestException;
 import com.fibanktask.exceptions.NotFoundException;
-import org.apache.commons.io.input.ReversedLinesFileReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -17,6 +16,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -57,9 +57,18 @@ public class TransactionServiceImpl implements  TransactionService{
         return response;
     }
 
+    @Override
+    public List<CurrencyBalance> getBalances() {
+        List<CurrencyBalance> response = new ArrayList<>();
+        response.add(balanceBGN);
+        response.add(balanceEUR);
+
+        return response;
+    }
+
     private void deposit(CashOperationRequestDTO request) {
         LocalDateTime now = LocalDateTime.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
         String formattedDateTime = now.format(formatter);
 
         if (request.getCurrencyType() == CurrencyType.BGN) {
@@ -246,5 +255,5 @@ public class TransactionServiceImpl implements  TransactionService{
             throw new BadRequestException("Error writing in the file!");
         }
     }
-    
+
 }

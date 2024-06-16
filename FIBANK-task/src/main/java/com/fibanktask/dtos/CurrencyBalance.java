@@ -6,8 +6,6 @@ import lombok.Setter;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.fibanktask.Utils.Constants.STARTING_BGN_AMOUNT;
-
 @Getter
 @Setter
 public class CurrencyBalance {
